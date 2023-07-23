@@ -1,0 +1,55 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <style>
+            * {
+                margin: 0px;
+                padding: 0px;
+            }
+            .main {
+                display: flex;
+                width: 100vw;
+                height: 100vh;
+                color: red;
+            }
+            .uploadContainer {
+                background-color: aqua;
+                width: 60vw;
+            }
+            .listingContainer {
+                margin: 20px;
+                background-color: blanchedalmond;
+                width: 40vw;
+            }
+            .availableItem {
+                margin: 20px;
+                padding: 20px;
+            }
+            .listing {
+                margin: 0px;
+                position: relative;
+                overflow-y: auto;
+                height: 97%;
+            }
+        </style>
+    </head>
+    <body>   
+        <div class="main">
+            <div class="uploadContainer"></div>
+            <div class="listingContainer">
+                <h1>{{listingName}}</h1>
+                <div class="listing">
+                    {{#each items}}
+                    <div class="availableItem">
+                        <a href="{{this.link}}"> {{this.name}} </a>
+                        <p>{{this.date}}</p>
+                    </div> 
+                    {{/each}}
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
