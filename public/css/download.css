@@ -1,0 +1,19 @@
+* {
+    margin: 0px;
+    padding: 0px;
+    background-color: aliceblue;
+}
+
+.container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.path {
+    margin-top: 32px;
+    font-size: 20px;
+}
