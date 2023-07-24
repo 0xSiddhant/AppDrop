@@ -1,0 +1,35 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <link rel="stylesheet" href="../public/css/home.css" />
+    </head>
+    <body>   
+        <div class="main">
+            <div class="uploadContainer">
+                <form action="/upload" method="post" enctype="multipart/form-data" id="submitForm">
+                    <input type="file" name="uploadfile" id="bundleFile" style="display:none;"/>
+                    <label for="bundleFile" class="custom-file-input"></label>
+                </form>
+            </div>
+            <div class="listingContainer">
+                <h1>{{listingName}}</h1>
+                <div class="listing">
+                    {{#each items}}
+                    <div class="availableItem">
+                        <a href="{{this.link}}"> {{this.name}} </a>
+                        <p>{{this.date}}</p>
+                    </div> 
+                    {{/each}}
+                </div>
+            </div>
+        </div>
+        <script>
+            document.getElementById("bundleFile").onchange = function() {
+                document.getElementById("submitForm").submit();
+            }
+        </script>
+    </body>
+    </html>
