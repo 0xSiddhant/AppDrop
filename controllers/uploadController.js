@@ -1,8 +1,11 @@
-const qr = require("qrcode");
-const path = require("path");
-const formidable = require("formidable");
-const fs = require("fs");
+const qr = require("qrcode")
+const path = require("path")
+const formidable = require("formidable")
+const fs = require("fs")
 const DateFormatter = require("../utils/dateFormatter")
+const url = require('url')
+const plist = require('plist')
+
 exports.upload = (req, res) => {
     var form = new formidable.IncomingForm();
     const uploadFolder = path.join(
@@ -44,20 +47,34 @@ exports.upload = (req, res) => {
                     message: "Failed To Save File",
                 });
             } else {
-                // TODO: - Generate xml file
+                const xmlPath = path.join(uploadFolder, `${newName}.plist`)
+                const xmlData = plistBuilder(newPath)
+                
+                fs.writeFile(xmlPath, xmlData, (err) => {
+                    if (err) {
+                        removeFile(newPath)
+                        return res.status(400).json({
+                            status: "Fail",
+                            message: "Failed To Generate Manifest file",
+                        });
+                    }
+
+                    qr.toDataURL(`itms-services:///?action=download-manifest&url=${url.pathToFileURL(xmlPath).href}`, (err, src) => {
+                        if (err) {
+                            return res.status(400).json({
+                                status: "Fail",
+                                message: "Failed To Generate QR Code",
+                            });
+                        }
+                        res.status(201).render("download", {
+                            src: src,
+                            path: "download file"
+                        });
+                    });
+                });
             }
         });
-        res.end();
     });
-
-    // qr.toDataURL("itms-services:///?action=download-manifest&url=https://dl.dropboxusercontent.com/s/jt1rpr58xlbim7h/App.plist", (err, src) => {
-    //     if (err) res.status(400).send("Unable to generate QR code");
-
-    //     res.status(201).render("download", {
-    //         src: src,
-    //         path: "download file"
-    //      });
-    // });
 
     const isFileValid = (file) => {
         const type = file.originalFilename.split(".").pop();
@@ -68,10 +85,17 @@ exports.upload = (req, res) => {
         return true;
     };
 
+    const removeFile = (filePath) => {
+        fs.unlink(filePath, () => {
+            console.log("File Removed successfully")
+        })
+    }
+
     const generateNewName = (file) => {
-        const fileType = file.originalFilename.split(".").pop();
+        const fileType = file.originalFilename.split(".").pop()
         if (fileType == "ipa") {
-            const fileName = file.originalFilename.split(".")[0];
+            // replace(/\s/g, "") => Removing Whitespace from string.
+            const fileName = file.originalFilename.split(".")[0].replace(/\s/g, "")
             let date = DateFormatter.dateFormattedInDDMMYYYHHMMSS()
             return `${fileName}_${date}.ipa`
         } else {
@@ -79,4 +103,30 @@ exports.upload = (req, res) => {
             return "apkfile.apk"
         }
     }
-};
+
+    const plistBuilder = (filePath) => {
+        // TODO: Extra Content from build file
+        const json = {
+            dict: {
+                items: [
+                    {
+                        assets: [
+                            {
+                                kind: "software-package",
+                                url: url.pathToFileURL(filePath).href
+                            }
+                        ],
+                        metadata: {
+                            "bundle-identifier": "com.app.travclan.dev",
+                            "bundle-version": "1.10",
+                            "kind": "Software",
+                            "title": "TravClan"
+                        }
+                    }
+                ]
+            }
+        }
+        const xml = plist.build(json)
+        return xml
+    }
+}
