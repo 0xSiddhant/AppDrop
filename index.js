@@ -6,6 +6,7 @@ const app = express()
 
 app.set("view engine", "hbs")
 
+// route
 app.use("/", require("./routes/home"))
 
 app.listen(port,() => {
