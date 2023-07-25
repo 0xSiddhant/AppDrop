@@ -68,7 +68,7 @@ exports.upload = (req, res) => {
                         }
                         res.status(201).render("download", {
                             src: src,
-                            path: "download file"
+                            path: url.pathToFileURL(xmlPath).href
                         });
                     });
                 });
