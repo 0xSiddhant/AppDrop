@@ -15,6 +15,6 @@ app.use('/public', express.static(path.join(__dirname, 'public')))
 app.use("/", require("./routes/home"))
 app.use("/", require("./routes/upload"))
 
-app.listen(port,() => {
+app.listen(port, () => {
     console.log(`Port running on http://localhost:${port}`)
 })

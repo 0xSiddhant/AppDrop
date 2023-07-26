@@ -149,6 +149,6 @@ exports.home = (req, res) => {
                 date: "10/12/2022",
                 qrCode: ""
             },
-        ],      
+        ],
     })
 }
