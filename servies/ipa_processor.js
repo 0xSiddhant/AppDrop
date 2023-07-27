@@ -1,9 +1,13 @@
-const { generateFileName } = require("../utils/util")
 const fs = require("fs")
 const plist = require('plist')
 const url = require('url')
 const path = require("path")
+const extract = require('extract-zip')
+const { exec, spawn } = require("child_process");
+
+
 const { qrCodeGenerator } = require("../utils/qrcode_generator")
+const { generateFileName } = require("../utils/util")
 
 class IPAProcessor {
     processIOSBuild(uploadFolder, file) {
@@ -25,29 +29,14 @@ class IPAProcessor {
                         status: "Fail",
                         message: "Failed To Save File",
                     })
-                } else {
-                    const xmlPath = path.join(uploadFolder, `${newName}.plist`)
-                    const xmlData = this.#plistBuilder(newPath)
-
-                    fs.writeFile(xmlPath, xmlData, (err) => {
-                        if (err) {
-                            removeFile(newPath)
-                            return reject({
-                                status: "Fail",
-                                message: "Failed To Generate Manifest file",
-                            })
-                        }
-
-                        qrCodeGenerator(`itms-services:///?action=download-manifest&url=${url.pathToFileURL(xmlPath).href}`)
-                            .then((src) => {
-                                return resolve({
-                                    src: src,
-                                    path: url.pathToFileURL(xmlPath).href
-                                })
-                            })
-                            .catch(reject)
-                    });
                 }
+                this.#extractIPAData(uploadFolder, newPath)
+                    .then((res) => {
+                        this.#generateXMLFile(uploadFolder, newPath, newName)
+                            .then(resolve)
+                            .catch(reject)
+                    })
+                    .catch(reject)
             });
         })
     }
@@ -74,6 +63,40 @@ class IPAProcessor {
         }
         const xml = plist.build(json)
         return xml
+    }
+
+    #generateXMLFile(uploadFolder, newPath, newName) {
+        return new Promise((resolve, reject) => {
+            const xmlPath = path.join(uploadFolder, `${newName}.plist`)
+            const xmlData = this.#plistBuilder(newPath)
+
+            fs.writeFile(xmlPath, xmlData, (err) => {
+                if (err) {
+                    removeFile(newPath)
+                    return reject({
+                        status: "Fail",
+                        message: "Failed To Generate Manifest file",
+                    })
+                }
+
+                qrCodeGenerator(`itms-services:///?action=download-manifest&url=${url.pathToFileURL(xmlPath).href}`)
+                    .then((src) => {
+                        return resolve({
+                            src: src,
+                            path: url.pathToFileURL(xmlPath).href
+                        })
+                    })
+                    .catch(reject)
+            });
+        })
+    }
+
+
+    #extractIPAData(existingIPADir, ipaPath) {
+        return new Promise((resolve, reject) => {
+            return resolve({
+            })
+        })
     }
 }
 
