@@ -98,14 +98,15 @@ class IPAProcessor {
 
             // Create Copy folder is not exist
             if (!fs.existsSync(copyPath)) {
-                fs.mkdir(copyPath, (err) => {
-                    if (err) {
-                        return reject({
-                            status: "Fail",
-                            message: "Failed To Process Build. CODE: 0",
-                        })
-                    }
-                })
+                try {
+                    fs.mkdirSync(copyPath)
+                } catch (err) {
+                    return reject({
+                        status: "Fail",
+                        message: "Failed To Process Build. CODE: 0",
+                        error: err
+                    })
+                }
             }
             // copied existing IPA file to new Path
             fs.copyFile(ipaPath, ipaNewPath, (err) => {

@@ -1,4 +1,5 @@
 const IPAProcessor = require("./ipa_processor")
+const fs = require("fs")
 
 class BuildProcessor {
     constructor() {
@@ -9,6 +10,8 @@ class BuildProcessor {
         return new Promise((resolve, reject) => {
             // File Type validation
             if (!this.#isFileValid(file)) {
+                // Removing unwanted file
+                fs.rmSync(file.filepath)
                 return reject(
                     {
                         status: "Fail",
