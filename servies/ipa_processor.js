@@ -2,8 +2,8 @@ const fs = require("fs")
 const plist = require('plist')
 const url = require('url')
 const path = require("path")
-const extract = require('extract-zip')
 const { exec, spawn } = require("child_process");
+
 
 
 const { qrCodeGenerator } = require("../utils/qrcode_generator")
@@ -32,7 +32,8 @@ class IPAProcessor {
                 }
                 this.#extractIPAData(uploadFolder, newPath)
                     .then((res) => {
-                        this.#generateXMLFile(uploadFolder, newPath, newName)
+                        console.log(res.appMetaData);
+                        this.#generateXMLFile(uploadFolder, newPath, newName, res.appMetaData)
                             .then(resolve)
                             .catch(reject)
                     })
@@ -41,7 +42,7 @@ class IPAProcessor {
         })
     }
 
-    #plistBuilder = (filePath) => {
+    #plistBuilder = (filePath, appMetaData) => {
         // TODO: Extra Content from build file
         const json = {
             items: [
@@ -53,10 +54,10 @@ class IPAProcessor {
                         }
                     ],
                     metadata: {
-                        "bundle-identifier": "com.app.travclan.dev",
-                        "bundle-version": "1.10",
+                        "bundle-identifier": appMetaData.CFBundleIdentifier,
+                        "bundle-version": appMetaData.CFBundleShortVersionString,
                         "kind": "Software",
-                        "title": "TravClan"
+                        "title": appMetaData.CFBundleName
                     }
                 }
             ]
@@ -65,10 +66,10 @@ class IPAProcessor {
         return xml
     }
 
-    #generateXMLFile(uploadFolder, newPath, newName) {
+    #generateXMLFile(uploadFolder, newPath, newName, appMetaData) {
         return new Promise((resolve, reject) => {
             const xmlPath = path.join(uploadFolder, `${newName}.plist`)
-            const xmlData = this.#plistBuilder(newPath)
+            const xmlData = this.#plistBuilder(newPath, appMetaData)
 
             fs.writeFile(xmlPath, xmlData, (err) => {
                 if (err) {
@@ -94,7 +95,59 @@ class IPAProcessor {
 
     #extractIPAData(existingIPADir, ipaPath) {
         return new Promise((resolve, reject) => {
-            return resolve({
+            const buildName = "temp.ipa"
+            const copyPath = path.join(existingIPADir, "copyPath")
+            const ipaNewPath = path.join(copyPath, buildName)
+
+            // Create Copy folder is not exist
+            if (!fs.existsSync(copyPath)) {
+                fs.mkdir(copyPath, (err) => {
+                    if (err) {
+                        return reject({
+                            status: "Fail",
+                            message: "Failed To Process Build. CODE: 0",
+                        })
+                    }
+                })
+            }
+            // copied existing IPA file to new Path
+            fs.copyFile(ipaPath, ipaNewPath, (err) => {
+                if (err) {
+                    return reject({
+                        status: "Fail",
+                        message: "Failed To Process Build. CODE: -1",
+                    })
+                }
+                const ls = spawn("python3", ["extractor.py", buildName]);
+
+                ls.stdout.on("data", data => {
+                    console.log(`stdout: ${data}`);
+                });
+
+                ls.on('error', (error) => {
+                    return reject({
+                        status: "Fail",
+                        message: "Failed To Process Build. CODE: -2",
+                        error: error.message
+                    })
+                });
+
+                ls.on("close", code => {
+                    exec(`plutil -convert json -o ${path.join(copyPath, "Info.json")} ${path.join(copyPath, "Info.plist")}`, (err, stdOut, stderr) => {
+                        if (fs.existsSync(path.join(copyPath, "Info.json"))) {
+                            return resolve({
+                                status: "Pass",
+                                appMetaData: require("../storage/copyPath/Info.json")
+                            })
+                        } else {
+                            return reject({
+                                status: "Fail",
+                                message: "Failed To Process Build. CODE: -3",
+                            })
+                        }
+                        
+                    })
+                });
             })
         })
     }

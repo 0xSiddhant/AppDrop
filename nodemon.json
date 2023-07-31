@@ -1,3 +1,4 @@
 {
-    "ext": ".js, .json, .yaml, .hbs"
+    "ignore": ["storage/", "README"],
+    "ext": ".js, .json, .yaml, .hbs, .py"
 }
