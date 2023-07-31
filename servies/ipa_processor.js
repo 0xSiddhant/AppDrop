@@ -2,10 +2,9 @@ const fs = require("fs")
 const plist = require('plist')
 const url = require('url')
 const path = require("path")
+const os = require('os')
+
 const { exec, spawn } = require("child_process");
-
-
-
 const { qrCodeGenerator } = require("../utils/qrcode_generator")
 const { generateFileName } = require("../utils/util")
 
@@ -32,7 +31,6 @@ class IPAProcessor {
                 }
                 this.#extractIPAData(uploadFolder, newPath)
                     .then((res) => {
-                        console.log(res.appMetaData);
                         this.#generateXMLFile(uploadFolder, newPath, newName, res.appMetaData)
                             .then(resolve)
                             .catch(reject)
@@ -43,7 +41,6 @@ class IPAProcessor {
     }
 
     #plistBuilder = (filePath, appMetaData) => {
-        // TODO: Extra Content from build file
         const json = {
             items: [
                 {
@@ -133,23 +130,39 @@ class IPAProcessor {
                 });
 
                 ls.on("close", code => {
-                    exec(`plutil -convert json -o ${path.join(copyPath, "Info.json")} ${path.join(copyPath, "Info.plist")}`, (err, stdOut, stderr) => {
+                    let command = ""
+                    if (os.type() == "Darwin") {
+                        // For MAC
+                        command = `plutil -convert json -o ${path.join(copyPath, "Info.json")} ${path.join(copyPath, "Info.plist")}`
+                    } else {
+                        // For Linux
+                        command = `python3 plist_to_json_converter.py ${path.join(copyPath, "Info.plist")} ${path.join(copyPath, "Info.json")}`
+                    }
+                    exec(command, (err, stdOut, stderr) => {
                         if (fs.existsSync(path.join(copyPath, "Info.json"))) {
+                            const jsonFile = require("../storage/copyPath/Info.json")
+                            this.#resetTempFile(existingIPADir)
+
                             return resolve({
                                 status: "Pass",
-                                appMetaData: require("../storage/copyPath/Info.json")
+                                appMetaData: jsonFile
                             })
                         } else {
+                            this.#resetTempFile(existingIPADir)
+
                             return reject({
                                 status: "Fail",
                                 message: "Failed To Process Build. CODE: -3",
                             })
                         }
-                        
                     })
                 });
             })
         })
+    }
+
+    #resetTempFile(storageDir) {
+        fs.rmSync(path.join(storageDir, "copyPath"), { recursive: true, force: true });
     }
 }
 
