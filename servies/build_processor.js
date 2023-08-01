@@ -6,7 +6,7 @@ class BuildProcessor {
 
     }
 
-    processBuild(uploadFolder, file) {
+    processBuild(uploadFolder, file, req) {
         return new Promise((resolve, reject) => {
             // File Type validation
             if (!this.#isFileValid(file)) {
@@ -22,7 +22,7 @@ class BuildProcessor {
             const buildExt = this.#buildType(file)
 
             if (buildExt === "ipa") {
-                IPAProcessor.processIOSBuild(uploadFolder, file)
+                IPAProcessor.processIOSBuild(uploadFolder, file, req)
                     .then(resolve)
                     .catch(reject)
             } else if (buildExt === "apk" || buildExt === "abb") {

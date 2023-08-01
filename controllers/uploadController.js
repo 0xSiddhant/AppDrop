@@ -26,7 +26,7 @@ exports.upload = (req, res) => {
 
         const finalFile = files.uploadfile[0];
 
-        buildProcessor.processBuild(uploadFolder, finalFile)
+        buildProcessor.processBuild(uploadFolder, finalFile, req)
             .then((json) => {
                 return res.status(201).render("download", json);
             })

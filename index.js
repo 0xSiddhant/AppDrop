@@ -10,6 +10,7 @@ app.set("view engine", "hbs")
 
 // Registered public folder
 app.use('/public', express.static(path.join(__dirname, 'public')))
+app.use('/storage', express.static(path.join(__dirname, 'storage')))
 
 // route
 app.use("/", require("./routes/home"))

@@ -9,7 +9,7 @@ const { qrCodeGenerator } = require("../utils/qrcode_generator")
 const { generateFileName } = require("../utils/util")
 
 class IPAProcessor {
-    processIOSBuild(uploadFolder, file) {
+    processIOSBuild(uploadFolder, file, req) {
         return new Promise((resolve, reject) => {
             // Renaming the File
             const oldPath = path.join(uploadFolder, file.newFilename)
@@ -31,7 +31,7 @@ class IPAProcessor {
                 }
                 this.#extractIPAData(uploadFolder, newPath)
                     .then((res) => {
-                        this.#generateXMLFile(uploadFolder, newPath, newName, res.appMetaData)
+                        this.#generateXMLFile(uploadFolder, newPath, newName, res.appMetaData, req)
                             .then(resolve)
                             .catch(reject)
                     })
@@ -40,14 +40,14 @@ class IPAProcessor {
         })
     }
 
-    #plistBuilder = (filePath, appMetaData) => {
+    #plistBuilder = (fileURL, appMetaData) => {
         const json = {
             items: [
                 {
                     assets: [
                         {
                             kind: "software-package",
-                            url: url.pathToFileURL(filePath).href
+                            url: fileURL
                         }
                     ],
                     metadata: {
@@ -63,10 +63,10 @@ class IPAProcessor {
         return xml
     }
 
-    #generateXMLFile(uploadFolder, newPath, newName, appMetaData) {
+    #generateXMLFile(uploadFolder, newPath, newName, appMetaData, req) {
         return new Promise((resolve, reject) => {
             const xmlPath = path.join(uploadFolder, `${newName}.plist`)
-            const xmlData = this.#plistBuilder(newPath, appMetaData)
+            const xmlData = this.#plistBuilder(`${req.protocol}://${req.hostname}/storage/${newName}`, appMetaData)
 
             fs.writeFile(xmlPath, xmlData, (err) => {
                 if (err) {
@@ -76,12 +76,13 @@ class IPAProcessor {
                         message: "Failed To Generate Manifest file",
                     })
                 }
+                console.log(`${req.protocol}://${req.hostname}/storage/${newName}.plist`);
 
-                qrCodeGenerator(`itms-services:///?action=download-manifest&url=${url.pathToFileURL(xmlPath).href}`)
+                qrCodeGenerator(`itms-services:///?action=download-manifest&url=${req.protocol}://${req.hostname}/storage/${newName}.plist`)
                     .then((src) => {
                         return resolve({
                             src: src,
-                            path: url.pathToFileURL(xmlPath).href
+                            path: `${req.protocol}://${req.hostname}/storage/${newName}.plist`
                         })
                     })
                     .catch(reject)
