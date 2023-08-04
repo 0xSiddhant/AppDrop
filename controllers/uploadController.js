@@ -1,4 +1,5 @@
 const path = require("path")
+const fs = require("fs")
 const formidable = require("formidable")
 
 const BuildProcessor = require("../servies/build_processor")
@@ -9,6 +10,17 @@ exports.upload = (req, res) => {
         path.dirname(require.main.filename),
         "storage"
     );
+    if (!fs.existsSync(uploadFolder)) {
+        try {
+            fs.mkdirSync(uploadFolder)
+        } catch (err) {
+            return reject({
+                status: "Fail",
+                message: "Failed To Process Build. CODE: 0",
+                error: err
+            })
+        }
+    }
     form.uploadDir = uploadFolder;
     // allow multiple file upload at once
     // form.multiples = true;

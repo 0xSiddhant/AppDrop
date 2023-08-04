@@ -76,7 +76,6 @@ class IPAProcessor {
                         message: "Failed To Generate Manifest file",
                     })
                 }
-                console.log(`${req.protocol}://${req.hostname}/storage/${newName}.plist`);
 
                 qrCodeGenerator(`itms-services:///?action=download-manifest&url=${req.protocol}://${req.hostname}/storage/${newName}.plist`)
                     .then((src) => {
