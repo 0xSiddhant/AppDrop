@@ -1,5 +1,5 @@
 # App Drop 
 
-App Drop is an IPA installer website where users can upload the iPA file and install the iPA on the allowed(iPhones whose UDID is added in the provisioning profile) iPhones
+A web-based platform that specializes in simplifying the distribution of mobile applications. It offers a user-friendly and efficient solution for developers and teams to share their iOS and Android apps with testers, clients, and stakeholders during the development and testing phases.
 
 ---
