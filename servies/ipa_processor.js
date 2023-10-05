@@ -66,7 +66,7 @@ class IPAProcessor {
     #generateXMLFile(uploadFolder, newPath, newName, appMetaData, req) {
         return new Promise((resolve, reject) => {
             const xmlPath = path.join(uploadFolder, `${newName}.plist`)
-            const xmlData = this.#plistBuilder(`${req.protocol}://${req.hostname}/storage/${newName}`, appMetaData)
+            const xmlData = this.#plistBuilder(`https://${req.hostname}/storage/${newName}`, appMetaData)
 
             fs.writeFile(xmlPath, xmlData, (err) => {
                 if (err) {
@@ -77,11 +77,11 @@ class IPAProcessor {
                     })
                 }
 
-                qrCodeGenerator(`itms-services:///?action=download-manifest&url=${req.protocol}://${req.hostname}/storage/${newName}.plist`)
+                qrCodeGenerator(`itms-services:///?action=download-manifest&url=https://${req.hostname}/storage/${newName}.plist`)
                     .then((src) => {
                         return resolve({
                             src: src,
-                            path: `${req.protocol}://${req.hostname}/storage/${newName}.plist`
+                            path: `https://${req.hostname}/storage/${newName}.plist`
                         })
                     })
                     .catch(reject)
