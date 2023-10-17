@@ -102,7 +102,6 @@ class IPAProcessor {
         })
     }
 
-
     #extractIPAData(existingIPADir, ipaPath) {
         return new Promise((resolve, reject) => {
             const buildName = "temp.ipa"
