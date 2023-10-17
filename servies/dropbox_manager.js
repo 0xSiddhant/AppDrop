@@ -16,16 +16,26 @@ class DropboxManager {
             this._client.filesUpload({
                 path: filePath,
                 contents: fileContent
-            }).then(() => {
+            }).then(async () =>  {
                 // Generated Downloadable link
+
                 // which expire in 4hr
-                this._client.filesGetTemporaryLink({
+                // this._client.filesGetTemporaryLink({
+                //     path: filePath
+                // }).then((res) => {
+                //     resolve(`${res.result.link}?dl=1`)
+                // }).catch((err) => {
+                //     reject(err)
+                // })
+
+                // Permanent Download link
+                const sharingInfo = await this._client.sharingCreateSharedLinkWithSettings({
                     path: filePath
-                }).then((res) => {
-                    resolve(`${res.result.link}?dl=1`)
-                }).catch((err) => {
-                    reject(err)
                 })
+                const sharedLink = sharingInfo.result.url;
+                const forcedDownloadLink = sharedLink.replace('dl=0', 'dl=1');
+                
+                resolve(forcedDownloadLink)
             }).catch((err) => {
                 reject(err)
             })
