@@ -7,6 +7,7 @@ const os = require('os')
 const { exec, spawn } = require("child_process");
 const { qrCodeGenerator } = require("../utils/qrcode_generator")
 const { generateFileName } = require("../utils/util")
+const DropboxManager = require("./dropbox_manager")
 
 class IPAProcessor {
     processIOSBuild(uploadFolder, file, req) {
@@ -29,13 +30,30 @@ class IPAProcessor {
                         message: "Failed To Save File",
                     })
                 }
-                this.#extractIPAData(uploadFolder, newPath)
-                    .then((res) => {
-                        this.#generateXMLFile(uploadFolder, newPath, newName, res.appMetaData, req)
-                            .then(resolve)
+
+                const DM = new DropboxManager()
+                const dbFolderName = "/ios"
+
+                DM.uploadFile(`${dbFolderName}/${newName}`, fs.readFileSync(newPath))
+                    .then((ipaUploadedPath) => {
+                        this.#extractIPAData(uploadFolder, newPath)
+                            .then((res) => {
+                                this.#generateXMLFile(uploadFolder, newPath, newName, ipaUploadedPath, res.appMetaData, req)
+                                    .then((res) => {
+                                        DM.uploadFile(`${dbFolderName}/${res.plistName}`, fs.readFileSync(res.plistPath))
+                                            .then((plistUrl) => {
+                                                // removing saved plist file after uploading
+                                                fs.unlink(res.plistPath, (err) => { if (err) { console.log(err) } })
+
+                                                this.#generateITMSlink(plistUrl)
+                                                    .then(resolve)
+                                                    .catch(reject)
+                                            }).catch(reject)
+                                    })
+                                    .catch(reject)
+                            })
                             .catch(reject)
                     })
-                    .catch(reject)
             });
         })
     }
@@ -63,10 +81,10 @@ class IPAProcessor {
         return xml
     }
 
-    #generateXMLFile(uploadFolder, newPath, newName, appMetaData, req) {
+    #generateXMLFile(uploadFolder, newPath, newName, iPAFilePath, appMetaData, req) {
         return new Promise((resolve, reject) => {
             const xmlPath = path.join(uploadFolder, `${newName}.plist`)
-            const xmlData = this.#plistBuilder(`${req.protocol}://${req.hostname}/storage/${newName}`, appMetaData)
+            const xmlData = this.#plistBuilder(iPAFilePath, appMetaData)
 
             fs.writeFile(xmlPath, xmlData, (err) => {
                 if (err) {
@@ -76,15 +94,10 @@ class IPAProcessor {
                         message: "Failed To Generate Manifest file",
                     })
                 }
-
-                qrCodeGenerator(`itms-services:///?action=download-manifest&url=${req.protocol}://${req.hostname}/storage/${newName}.plist`)
-                    .then((src) => {
-                        return resolve({
-                            src: src,
-                            path: `${req.protocol}://${req.hostname}/storage/${newName}.plist`
-                        })
-                    })
-                    .catch(reject)
+                return resolve({
+                    plistName: `${newName}.plist`,
+                    plistPath: xmlPath
+                })
             });
         })
     }
@@ -142,7 +155,11 @@ class IPAProcessor {
                     exec(command, (err, stdOut, stderr) => {
                         if (fs.existsSync(path.join(copyPath, "Info.json"))) {
                             const jsonFile = require("../storage/copyPath/Info.json")
+
                             this.#resetTempFile(existingIPADir)
+
+                            // Removing IPA File after processing as current file is uploaded on dropbox
+                            fs.unlink(ipaPath, (err) => { if (err) { console.log(err) } })
 
                             return resolve({
                                 status: "Pass",
@@ -159,6 +176,19 @@ class IPAProcessor {
                     })
                 });
             })
+        })
+    }
+
+    #generateITMSlink(plistUrl) {
+        return new Promise((resolve, reject) => {
+            qrCodeGenerator(`itms-services:///?action=download-manifest&url=${plistUrl}`)
+                .then((src) => {
+                    return resolve({
+                        src: src,
+                        path: `${plistUrl}`
+                    })
+                })
+                .catch(reject)
         })
     }
 
