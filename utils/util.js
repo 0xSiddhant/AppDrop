@@ -1,14 +1,10 @@
 const DateFormatter = require("../utils/dateFormatter")
 
 exports.generateFileName = (file) => {
-    const fileType = file.originalFilename.split(".").pop()
-    if (fileType == "ipa") {
-        // replace(/\s/g, "") => Removing Whitespace from string.
-        const fileName = file.originalFilename.split(".")[0].replace(/\s/g, "")
-        let date = DateFormatter.dateFormattedInDDMMYYYHHMMSS()
-        return `${fileName}_${date}.ipa`
-    } else {
-        // APK file --
-        return "apkfile.apk"
-    }
+    const fileType = file.originalFilename.split(".").pop().toLowerCase()
+    // Keep only URL-safe characters so the name works in the manifest and itms-services URLs
+    const baseName = file.originalFilename.slice(0, file.originalFilename.lastIndexOf("."))
+    const fileName = baseName.replace(/[^a-zA-Z0-9_-]/g, "") || "build"
+    let date = DateFormatter.dateFormattedInDDMMYYYHHMMSS()
+    return `${fileName}_${date}.${fileType}`
 }
