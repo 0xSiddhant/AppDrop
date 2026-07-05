@@ -5,9 +5,9 @@ exports.dateFormattedInDDMMYYYHHMMSS = () => {
     let month = ("0" + (dateObject.getMonth() + 1)).slice(-2);
     let year = dateObject.getFullYear();
 
-    let hours = dateObject.getHours();
-    let minutes = dateObject.getMinutes();
-    let seconds = dateObject.getSeconds();
+    let hours = ("0" + dateObject.getHours()).slice(-2);
+    let minutes = ("0" + dateObject.getMinutes()).slice(-2);
+    let seconds = ("0" + dateObject.getSeconds()).slice(-2);
 
-    return `${date}-${month}-${year}_${hours}:${minutes}:${seconds}`
+    return `${date}-${month}-${year}_${hours}-${minutes}-${seconds}`
 }

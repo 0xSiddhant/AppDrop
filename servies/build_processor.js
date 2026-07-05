@@ -1,4 +1,5 @@
 const IPAProcessor = require("./ipa_processor")
+const APKProcessor = require("./apk_processor")
 const fs = require("fs")
 
 class BuildProcessor {
@@ -25,21 +26,24 @@ class BuildProcessor {
                 IPAProcessor.processIOSBuild(uploadFolder, file, req)
                     .then(resolve)
                     .catch(reject)
-            } else if (buildExt === "apk" || buildExt === "abb") {
-                // TODO: Android
+            } else {
+                // apk / aab
+                APKProcessor.processAndroidBuild(uploadFolder, file, req)
+                    .then(resolve)
+                    .catch(reject)
             }
         })
     }
 
 
     #buildType(file) {
-        const type = file.originalFilename.split(".").pop();
+        const type = file.originalFilename.split(".").pop().toLowerCase();
         return type
     }
 
     #isFileValid = (file) => {
-        const type = file.originalFilename.split(".").pop();
-        const validTypes = ["ipa", "apk", "abb"];
+        const type = file.originalFilename.split(".").pop().toLowerCase();
+        const validTypes = ["ipa", "apk", "aab"];
         if (validTypes.indexOf(type) === -1) {
             return false;
         }

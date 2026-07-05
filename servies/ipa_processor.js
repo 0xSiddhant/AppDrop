@@ -35,7 +35,11 @@ class IPAProcessor {
                             .then(resolve)
                             .catch(reject)
                     })
-                    .catch(reject)
+                    .catch((err) => {
+                        // Don't leave a broken build publicly downloadable in /storage
+                        removeFile(newPath)
+                        reject(err)
+                    })
             });
         })
     }
@@ -52,9 +56,9 @@ class IPAProcessor {
                     ],
                     metadata: {
                         "bundle-identifier": appMetaData.CFBundleIdentifier,
-                        "bundle-version": appMetaData.CFBundleShortVersionString,
+                        "bundle-version": appMetaData.CFBundleShortVersionString || "1.0",
                         "kind": "Software",
-                        "title": appMetaData.CFBundleName
+                        "title": appMetaData.CFBundleDisplayName || appMetaData.CFBundleName || "App"
                     }
                 }
             ]
@@ -65,23 +69,37 @@ class IPAProcessor {
 
     #generateXMLFile(uploadFolder, newPath, newName, appMetaData, req) {
         return new Promise((resolve, reject) => {
+            if (!appMetaData || !appMetaData.CFBundleIdentifier) {
+                fs.unlink(newPath, () => { })
+                return reject({
+                    status: "Fail",
+                    message: "Could not read bundle identifier from Info.plist",
+                })
+            }
             const xmlPath = path.join(uploadFolder, `${newName}.plist`)
-            const xmlData = this.#plistBuilder(`https://${req.hostname}/storage/${newName}`, appMetaData)
+            const encodedName = encodeURIComponent(newName)
+            // BASE_URL (e.g. https://builds.example.com) covers non-443 ports and reverse proxies;
+            // iOS requires HTTPS for OTA installs, so default scheme is https
+            const baseURL = (process.env.BASE_URL || `https://${req.hostname}`).replace(/\/+$/, "")
+            const manifestURL = `${baseURL}/storage/${encodedName}.plist`
+            const installURL = `itms-services:///?action=download-manifest&url=${encodeURIComponent(manifestURL)}`
+            const xmlData = this.#plistBuilder(`${baseURL}/storage/${encodedName}`, appMetaData)
 
             fs.writeFile(xmlPath, xmlData, (err) => {
                 if (err) {
-                    removeFile(newPath)
+                    fs.unlink(newPath, () => { })
                     return reject({
                         status: "Fail",
                         message: "Failed To Generate Manifest file",
                     })
                 }
 
-                qrCodeGenerator(`itms-services:///?action=download-manifest&url=https://${req.hostname}/storage/${newName}.plist`)
+                qrCodeGenerator(installURL)
                     .then((src) => {
                         return resolve({
                             src: src,
-                            path: `https://${req.hostname}/storage/${newName}.plist`
+                            path: manifestURL,
+                            installUrl: installURL
                         })
                     })
                     .catch(reject)
@@ -93,36 +111,36 @@ class IPAProcessor {
     #extractIPAData(existingIPADir, ipaPath) {
         return new Promise((resolve, reject) => {
             const buildName = "temp.ipa"
-            const copyPath = path.join(existingIPADir, "copyPath")
+            // Unique temp folder per upload so concurrent uploads don't collide
+            let copyPath
+            try {
+                copyPath = fs.mkdtempSync(path.join(existingIPADir, "copy-"))
+            } catch (err) {
+                return reject({
+                    status: "Fail",
+                    message: "Failed To Process Build. CODE: 0",
+                    error: err
+                })
+            }
             const ipaNewPath = path.join(copyPath, buildName)
 
-            // Create Copy folder is not exist
-            if (!fs.existsSync(copyPath)) {
-                try {
-                    fs.mkdirSync(copyPath)
-                } catch (err) {
-                    return reject({
-                        status: "Fail",
-                        message: "Failed To Process Build. CODE: 0",
-                        error: err
-                    })
-                }
-            }
             // copied existing IPA file to new Path
             fs.copyFile(ipaPath, ipaNewPath, (err) => {
                 if (err) {
+                    this.#resetTempFile(copyPath)
                     return reject({
                         status: "Fail",
                         message: "Failed To Process Build. CODE: -1",
                     })
                 }
-                const ls = spawn("python3", ["extractor.py", buildName]);
+                const ls = spawn("python3", ["extractor.py", buildName, copyPath]);
 
                 ls.stdout.on("data", data => {
                     console.log(`stdout: ${data}`);
                 });
 
                 ls.on('error', (error) => {
+                    this.#resetTempFile(copyPath)
                     return reject({
                         status: "Fail",
                         message: "Failed To Process Build. CODE: -2",
@@ -131,39 +149,43 @@ class IPAProcessor {
                 });
 
                 ls.on("close", code => {
+                    const plistPath = path.join(copyPath, "Info.plist")
+                    const jsonPath = path.join(copyPath, "Info.json")
                     let command = ""
                     if (os.type() == "Darwin") {
                         // For MAC
-                        command = `plutil -convert json -o ${path.join(copyPath, "Info.json")} ${path.join(copyPath, "Info.plist")}`
+                        command = `plutil -convert json -o "${jsonPath}" "${plistPath}"`
                     } else {
                         // For Linux
-                        command = `python3 plist_to_json_converter.py ${path.join(copyPath, "Info.plist")} ${path.join(copyPath, "Info.json")}`
+                        command = `python3 plist_to_json_converter.py "${plistPath}" "${jsonPath}"`
                     }
                     exec(command, (err, stdOut, stderr) => {
-                        if (fs.existsSync(path.join(copyPath, "Info.json"))) {
-                            const jsonFile = require("../storage/copyPath/Info.json")
-                            this.#resetTempFile(existingIPADir)
+                        let appMetaData = null
+                        try {
+                            appMetaData = JSON.parse(fs.readFileSync(jsonPath, "utf8"))
+                        } catch (readErr) {
+                            appMetaData = null
+                        }
+                        this.#resetTempFile(copyPath)
 
+                        if (appMetaData) {
                             return resolve({
                                 status: "Pass",
-                                appMetaData: jsonFile
-                            })
-                        } else {
-                            this.#resetTempFile(existingIPADir)
-
-                            return reject({
-                                status: "Fail",
-                                message: "Failed To Process Build. CODE: -3",
+                                appMetaData: appMetaData
                             })
                         }
+                        return reject({
+                            status: "Fail",
+                            message: "Failed To Process Build. CODE: -3",
+                        })
                     })
                 });
             })
         })
     }
 
-    #resetTempFile(storageDir) {
-        fs.rmSync(path.join(storageDir, "copyPath"), { recursive: true, force: true });
+    #resetTempFile(copyPath) {
+        fs.rmSync(copyPath, { recursive: true, force: true });
     }
 }
 
